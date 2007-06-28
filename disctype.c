@@ -7,7 +7,7 @@
 
 void display_version()
 {
-	puts("$Id$");
+	puts("Version 1.0 - Compiled on " __DATE__);
 }
 
 void display_help()
