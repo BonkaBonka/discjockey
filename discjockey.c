@@ -1,3 +1,4 @@
+#include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -16,7 +17,7 @@ static char *child_cmd = NULL;
 
 int spawn_child(int index, char *device)
 {
-	char *args[] = { child_cmd, device };
+	char *args[] = { child_cmd, device, NULL };
 
 	if((child_pids[index] = fork()) == 0)
 	{
@@ -158,7 +159,7 @@ int main(int argc, char **argv)
 
 		sleep(rescan_delay);
 
-		while((status = waitpid(-1, NULL, WNOHANG)) != 0)
+		while((status = waitpid(-1, NULL, WNOHANG)) > 0)
 		{
 			for(i = 0; i < max_children; i++)
 			{
@@ -174,6 +175,12 @@ int main(int argc, char **argv)
 				fprintf(stderr, "Notified about a child process (%d) ending that's not on my watch list\n", status);
 				return 1;
 			}
+		}
+
+		if(status < 0 && errno != ECHILD)
+		{
+			perror(NULL);
+			return 1;
 		}
 	}
 
