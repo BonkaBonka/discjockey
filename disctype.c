@@ -1,3 +1,8 @@
+#include <fcntl.h>
+#include <getopt.h>
+#include <stdio.h>
+#include <stropts.h>
+#include <unistd.h>
 #include <linux/cdrom.h>
 
 void display_version()
@@ -51,7 +56,7 @@ int process_args(int argc, char **argv)
 
 int main(int argc, char **argv)
 {
-	int fd, status;
+	int c, fd, status;
 	char *device;
 
 	c = process_args(argc, argv);
@@ -61,6 +66,32 @@ int main(int argc, char **argv)
 	}
 
 	device = argv[c];
+
+	if((fd = open(device, O_RDONLY | O_NONBLOCK)) < 0)
+	{
+		perror(device);
+		return 1;
+	}
+
+	status = ioctl(fd, CDROM_DISC_STATUS, CDSL_CURRENT);
+
+	close(fd);
+
+	switch(status)
+	{
+		case CDS_AUDIO:
+			puts("audio");
+			break;
+		case CDS_DATA_1:
+		case CDS_DATA_2:
+			puts("data");
+			break;
+		case CDS_MIXED:
+			puts("mixed");
+			break;
+		default:
+			puts("unknown");
+	}
 
 	return 0;
 }
