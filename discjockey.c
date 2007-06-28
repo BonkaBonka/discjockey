@@ -1,15 +1,16 @@
-// #include <errno.h>
-// #include <fcntl.h>
+#include <fcntl.h>
 // #include <getopt.h>
 // #include <signal.h>
 // #include <stdarg.h>
-// #include <stdio.h>
-// #include <stdlib.h>
-// #include <string.h>
-// #include <time.h>
-// #include <unistd.h>
-// #include <sys/stat.h>
-// #include <sys/wait.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stropts.h>
+#include <unistd.h>
+#include <sys/wait.h>
+#include <linux/cdrom.h>
+
+#define DEFAULT_CHILD_COMMAND "rip"
 
 static int rescan_delay = 5;
 static int max_children = 0;
@@ -150,7 +151,10 @@ int main(int argc, char **argv)
 
 				if(status == CDS_DISC_OK)
 				{
-					spawn_child(i, device);
+					if(spawn_child(i, device) != 0)
+					{
+						return 1;
+					}
 				}
 			}
 		}
@@ -159,7 +163,20 @@ int main(int argc, char **argv)
 
 		while((status = waitpid(-1, NULL, WNOHANG)) != 0)
 		{
-			cleanup_child(status);
+			for(i = 0; i < max_children; i++)
+			{
+				if(child_pids[i] == status)
+				{
+					child_pids[i] = 0;
+					break;
+				}
+			}
+
+			if(i >= max_children)
+			{
+				fprintf(stderr, "Notified about a child process (%d) ending that's not on my watch list\n", status);
+				return 1;
+			}
 		}
 	}
 
