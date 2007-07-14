@@ -13,7 +13,7 @@ static char* pidfile = NULL;
 
 void term_handler(int signal)
 {
-	if(pidfile && !unlink(pidfile))
+	if(pidfile && unlink(pidfile) == -1)
 	{
 		perror(pidfile);
 	}
@@ -119,7 +119,7 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	if(pidfile && !write_pidfile(pidfile, getpid()))
+	if(pidfile && write_pidfile(pidfile, getpid()) == -1)
 	{
 		return 1;
 	}
