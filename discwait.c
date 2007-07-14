@@ -9,10 +9,33 @@
 
 static int rescan_delay = 5;
 static int quiet = 0;
+static char* pidfile = NULL;
 
 void term_handler(int signal)
 {
-        exit(1);
+	if(pidfile && !unlink(pidfile))
+	{
+		perror(pidfile);
+	}
+
+        exit(2);
+}
+
+int write_pidfile(char *filename, int pid)
+{
+	FILE* out;
+
+	if((out = fopen(filename, "w")) == NULL)
+	{
+		perror(filename);
+		return -1;
+	}
+
+	fprintf(out, "%d\n", pid);
+
+	fclose(out);
+
+	return 0;
 }
 
 void display_version()
@@ -28,6 +51,7 @@ void display_help()
 	puts("Options:");
 	puts("  -d <delay>  the number of seconds between checks");
 	puts("  -h          display this help");
+	puts("  -p <name>   write process ID to the given filename");
 	puts("  -q          don't display disc type");
 	puts("  -v          display the version of the code");
 }
@@ -36,12 +60,15 @@ int process_args(int argc, char **argv)
 {
 	int c;
 
-	while((c = getopt(argc, argv, "d:hqv")) != -1)
+	while((c = getopt(argc, argv, "d:hp:qv")) != -1)
 	{
 		switch(c)
 		{
 			case 'd':
 				rescan_delay = atoi(optarg);
+				break;
+			case 'p':
+				pidfile = optarg;
 				break;
 			case 'q':
 				quiet = 1;
@@ -89,6 +116,11 @@ int main(int argc, char **argv)
 	if((fd = open(device, O_RDONLY | O_NONBLOCK)) < 0)
 	{
 		perror(device);
+		return 1;
+	}
+
+	if(pidfile && !write_pidfile(pidfile, getpid()))
+	{
 		return 1;
 	}
 
