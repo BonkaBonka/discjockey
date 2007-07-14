@@ -1,5 +1,6 @@
 #include <fcntl.h>
 #include <getopt.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stropts.h>
@@ -8,6 +9,11 @@
 
 static int rescan_delay = 5;
 static int quiet = 0;
+
+void term_handler(int signal)
+{
+        exit(1);
+}
 
 void display_version()
 {
@@ -70,6 +76,7 @@ int main(int argc, char **argv)
 {
 	int c, fd, status;
 	char *device;
+        struct sigaction action;
 
 	c = process_args(argc, argv);
 	if(c < 1)
@@ -84,6 +91,11 @@ int main(int argc, char **argv)
 		perror(device);
 		return 1;
 	}
+
+        action.sa_flags = 0;
+        action.sa_handler = term_handler;
+        sigemptyset(&action.sa_mask);
+        sigaction(SIGTERM, &action, NULL);
 
 	while(ioctl(fd, CDROM_DRIVE_STATUS, CDSL_CURRENT) != CDS_DISC_OK)
 	{
