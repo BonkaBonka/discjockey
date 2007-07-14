@@ -7,6 +7,7 @@
 #include <linux/cdrom.h>
 
 static int rescan_delay = 5;
+static int quiet = 0;
 
 void display_version()
 {
@@ -21,6 +22,7 @@ void display_help()
 	puts("Options:");
 	puts("  -d <delay>  the number of seconds between checks");
 	puts("  -h          display this help");
+	puts("  -q          don't display disc type");
 	puts("  -v          display the version of the code");
 }
 
@@ -28,12 +30,15 @@ int process_args(int argc, char **argv)
 {
 	int c;
 
-	while((c = getopt(argc, argv, "d:hv")) != -1)
+	while((c = getopt(argc, argv, "d:hqv")) != -1)
 	{
 		switch(c)
 		{
 			case 'd':
 				rescan_delay = atoi(optarg);
+				break;
+			case 'q':
+				quiet = 1;
 				break;
 			case 'v':
 				display_version();
@@ -85,21 +90,24 @@ int main(int argc, char **argv)
 		sleep(rescan_delay);
 	}
 
-	status = ioctl(fd, CDROM_DISC_STATUS, CDSL_CURRENT);
-	switch(status)
+	if(!quiet)
 	{
-		case CDS_AUDIO:
-			puts("audio");
-			break;
-		case CDS_DATA_1:
-		case CDS_DATA_2:
-			puts("data");
-			break;
-		case CDS_MIXED:
-			puts("mixed");
-			break;
-		default:
-			puts("unknown");
+		status = ioctl(fd, CDROM_DISC_STATUS, CDSL_CURRENT);
+		switch(status)
+		{
+			case CDS_AUDIO:
+				puts("audio");
+				break;
+			case CDS_DATA_1:
+			case CDS_DATA_2:
+				puts("data");
+				break;
+			case CDS_MIXED:
+				puts("mixed");
+				break;
+			default:
+				puts("unknown");
+		}
 	}
 
 	close(fd);
