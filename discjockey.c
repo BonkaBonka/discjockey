@@ -1,11 +1,13 @@
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stropts.h>
 #include <unistd.h>
+#include <sys/ioctl.h>
 #include <sys/wait.h>
+
 #include <linux/cdrom.h>
 
 #define DEFAULT_CHILD_COMMAND "rip"
@@ -17,7 +19,9 @@ static char *child_cmd = NULL;
 
 int spawn_child(int index, char *device)
 {
-	char *args[] = { child_cmd, device, NULL };
+	char *args[] = { NULL, NULL, NULL };
+	args[0] = child_cmd;
+	args[1] = device;
 
 	if((child_pids[index] = fork()) == 0)
 	{

@@ -1,8 +1,10 @@
 #include <fcntl.h>
 #include <getopt.h>
+#include <limits.h>
 #include <stdio.h>
-#include <stropts.h>
 #include <unistd.h>
+#include <sys/ioctl.h>
+
 #include <linux/cdrom.h>
 
 void display_version()

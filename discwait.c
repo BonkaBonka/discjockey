@@ -1,10 +1,12 @@
 #include <fcntl.h>
 #include <getopt.h>
+#include <limits.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stropts.h>
 #include <unistd.h>
+#include <sys/ioctl.h>
+
 #include <linux/cdrom.h>
 
 static int rescan_delay = 5;
