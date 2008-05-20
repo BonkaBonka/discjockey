@@ -13,6 +13,7 @@
 #define DEFAULT_CHILD_COMMAND "rip"
 
 static int daemonize = 1;
+static int killified = 0;
 static int rescan_delay = 5;
 static int max_children = 0;
 static int *child_pids = NULL;
@@ -21,9 +22,11 @@ static char *pidfile = NULL;
 
 int spawn_child(int index, char *device)
 {
-	char *args[] = { NULL, NULL, NULL };
+	char *args[4];
 	args[0] = child_cmd;
 	args[1] = device;
+	args[2] = device + strlen(device) - 1;
+	args[3] = NULL;
 
 	if((child_pids[index] = fork()) == 0)
 	{
@@ -74,7 +77,7 @@ int process_args(int argc, char **argv)
 				pidfile = strdup(optarg);
 				if(pidfile == NULL)
 				{
-					perror(NULL);
+					perror("strdup");
 					return -1;
 				}
 				break;
@@ -82,7 +85,7 @@ int process_args(int argc, char **argv)
 				child_cmd = strdup(optarg);
 				if(child_cmd == NULL)
 				{
-					perror(NULL);
+					perror("strdup");
 					return -1;
 				}
 				break;
@@ -113,7 +116,7 @@ int process_args(int argc, char **argv)
 		child_cmd = strdup(DEFAULT_CHILD_COMMAND);
 		if(child_cmd == NULL)
 		{
-			perror(NULL);
+			perror("strdup");
 			return -1;
 		}
 	}
@@ -137,18 +140,18 @@ int main(int argc, char **argv)
 	if(c < 1)
 	{
 		releasemem();
-		return c;
+		return abs(c);
 	}
 
 	max_children = argc - c;
 	if((child_pids = (int *)calloc(max_children, sizeof(int))) == NULL)
 	{
-		perror(NULL);
+		perror("calloc");
 		releasemem();
 		return 1;
 	}
 
-	while(1)
+	while(!killified)
 	{
 		for(i = 0; i < max_children; i++)
 		{
@@ -199,7 +202,7 @@ int main(int argc, char **argv)
 
 		if(status < 0 && errno != ECHILD)
 		{
-			perror(NULL);
+			perror("waitpid");
 			return 1;
 		}
 	}
