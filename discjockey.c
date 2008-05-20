@@ -11,7 +11,6 @@
 #include <linux/cdrom.h>
 
 #define DEFAULT_CHILD_COMMAND "rip"
-#define DEFAULT_OUTPUT_FILE "/dev/null"
 #define DEFAULT_PID_FILE "/tmp/discjockey.pid"
 
 static int daemonize = 1;
@@ -21,7 +20,7 @@ static int max_children = 0;
 static int *child_pids = NULL;
 static char *child_cmd = NULL;
 static char *pidfile = NULL;
-static char *outfile = DEFAULT_OUTPUT_FILE;
+static char *outfile = NULL;
 
 int spawn_child(int index, char *device)
 {
@@ -109,6 +108,7 @@ void display_help()
 	puts("  -d <delay>    the number of seconds between checks");
 	puts("  -f            don't daemonize");
 	puts("  -h            display this help");
+	puts("  -o <outfile>  the name of the output file");
 	puts("  -p <pidfile>  the name of the pidfile");
 	puts("  -r <command>  the command to run upon disc detection");
 	puts("  -v            display the version of the code");
@@ -118,7 +118,7 @@ int process_args(int argc, char **argv)
 {
 	int c;
 
-	while((c = getopt(argc, argv, "d:fhp:r:v")) != -1)
+	while((c = getopt(argc, argv, "d:fho:p:r:v")) != -1)
 	{
 		switch(c)
 		{
@@ -127,6 +127,14 @@ int process_args(int argc, char **argv)
 				break;
 			case 'f':
 				daemonize = 0;
+				break;
+			case 'o':
+				outfile = strdup(optarg);
+				if(outfile == NULL)
+				{
+					perror("strdup");
+					return -1;
+				}
 				break;
 			case 'p':
 				pidfile = strdup(optarg);
@@ -216,6 +224,22 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
+	if(outfile)
+	{
+		fd = open(outfile, O_WRONLY | O_CREAT);
+		if(fd < 0)
+		{
+			perror(outfile);
+			releasemem();
+			return 1;
+		}
+
+		dup2(fd, 1);
+		dup2(fd, 2);
+
+		close(fd);
+	}
+
 	if(daemonize)
 	{
 		if(fork() != 0)
@@ -230,17 +254,21 @@ int main(int argc, char **argv)
 
 		chdir("/");
 
-		close(0);
-
-		fd = open(outfile, O_WRONLY | O_CREAT);
+		fd = open("/dev/null", O_RDWR);
 		if(fd < 0)
 		{
 			perror("open outfile");
-			return -1;
+			releasemem();
+			return 1;
 		}
 
-		dup2(fd, 1);
-		dup2(fd, 2);
+		dup2(fd, 0);
+
+		if(!outfile)
+		{
+			dup2(fd, 1);
+			dup2(fd, 2);
+		}
 
 		close(fd);
 	}
