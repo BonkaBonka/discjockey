@@ -35,7 +35,7 @@ int spawn_child(int index, char *device)
 		if(execvp(child_cmd, args) == -1)
 		{
 			perror(child_cmd);
-			return 1;
+			return -1;
 		}
 	}
 
@@ -210,12 +210,6 @@ int main(int argc, char **argv)
 			return 0;
 		}
 
-		if(!write_pidfile(pidfile, getpid()))
-		{
-			releasemem();
-			return 1;
-		}
-
 		install_signal_handler();
 
 		setsid();
@@ -237,6 +231,12 @@ int main(int argc, char **argv)
 		close(fd);
 	}
 
+	if(write_pidfile(pidfile, getpid()) == -1)
+	{
+		releasemem();
+		return 1;
+	}
+
 	while(!killified)
 	{
 		for(i = 0; i < max_children; i++)
@@ -248,6 +248,7 @@ int main(int argc, char **argv)
 				if((fd = open(device, O_RDONLY | O_NONBLOCK)) < 0)
 				{
 					perror(device);
+					if(pidfile) unlink(pidfile);
 					releasemem();
 					return 1;
 				}
@@ -258,8 +259,15 @@ int main(int argc, char **argv)
 
 				if(status == CDS_DISC_OK)
 				{
-					if(spawn_child(i, device) != 0)
+					if(spawn_child(i, device) == -1)
 					{
+						/***
+						 * if there was an error,
+						 * only the child subprocess
+						 * returns here so don't zap
+						 * the pidfile
+						 ***/
+						releasemem();
 						return 1;
 					}
 				}
@@ -288,11 +296,13 @@ int main(int argc, char **argv)
 		if(status < 0 && errno != ECHILD)
 		{
 			perror("waitpid");
+			if(pidfile) unlink(pidfile);
+			releasemem();
 			return 1;
 		}
 	}
 
+	if(pidfile) unlink(pidfile);
 	releasemem();
-
 	return 0;
 }
