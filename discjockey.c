@@ -11,6 +11,7 @@
 #include <linux/cdrom.h>
 
 #define DEFAULT_CHILD_COMMAND "rip"
+#define DEFAULT_OUTPUT_FILE "/dev/null"
 
 static int daemonize = 1;
 static int killified = 0;
@@ -19,6 +20,7 @@ static int max_children = 0;
 static int *child_pids = NULL;
 static char *child_cmd = NULL;
 static char *pidfile = NULL;
+static char *outfile = DEFAULT_OUTPUT_FILE;
 
 int spawn_child(int index, char *device)
 {
@@ -38,6 +40,55 @@ int spawn_child(int index, char *device)
 	}
 
 	return 0;
+}
+
+void passthrough_handler(int signal)
+{
+	int i;
+
+	for(i = 0; i < max_children; i++)
+	{
+		kill(child_pids[i], signal);
+	}
+
+	killified = 1;
+}
+
+void install_signal_handler()
+{
+        struct sigaction action;
+
+	/* What about SIGQUIT or SIGHUP? */
+
+        action.sa_flags = 0;
+        action.sa_handler = passthrough_handler;
+        sigemptyset(&action.sa_mask);
+        sigaction(SIGTERM, &action, NULL);
+
+        action.sa_flags = 0;
+        action.sa_handler = passthrough_handler;
+        sigemptyset(&action.sa_mask);
+        sigaction(SIGINT, &action, NULL);
+}
+
+int write_pidfile(char *filename, int pid)
+{
+	FILE *out;
+
+	if(filename != NULL)
+	{
+		if((out = fopen(filename, "w+")) == NULL)
+		{
+			perror("fopen");
+			return -1;
+		}
+
+		fprintf(out, "%d\n", pid);
+
+		fclose(out);
+	}
+
+        return 0;
 }
 
 void display_version()
@@ -151,6 +202,41 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
+	if(daemonize)
+	{
+		if(fork() != 0)
+		{
+			releasemem();
+			return 0;
+		}
+
+		if(!write_pidfile(pidfile, getpid()))
+		{
+			releasemem();
+			return 1;
+		}
+
+		install_signal_handler();
+
+		setsid();
+
+		chdir("/");
+
+		close(0);
+
+		fd = open(outfile, O_WRONLY | O_CREAT);
+		if(fd < 0)
+		{
+			perror("open outfile");
+			return -1;
+		}
+
+		dup2(fd, 1);
+		dup2(fd, 2);
+
+		close(fd);
+	}
+
 	while(!killified)
 	{
 		for(i = 0; i < max_children; i++)
@@ -196,7 +282,6 @@ int main(int argc, char **argv)
 			if(i >= max_children)
 			{
 				fprintf(stderr, "Notified about a child process (%d) ending that's not on my watch list\n", status);
-				return 1;
 			}
 		}
 
