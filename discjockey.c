@@ -12,10 +12,12 @@
 
 #define DEFAULT_CHILD_COMMAND "rip"
 
+static int daemonize = 1;
 static int rescan_delay = 5;
 static int max_children = 0;
 static int *child_pids = NULL;
 static char *child_cmd = NULL;
+static char *pidfile = NULL;
 
 int spawn_child(int index, char *device)
 {
@@ -37,7 +39,7 @@ int spawn_child(int index, char *device)
 
 void display_version()
 {
-	puts("Version 1.0 - Compiled on " __DATE__);
+	puts("Version 2.0 - Compiled on " __DATE__);
 }
 
 void display_help()
@@ -47,7 +49,9 @@ void display_help()
 	puts("");
 	puts("Options:");
 	puts("  -d <delay>    the number of seconds between checks");
+	puts("  -f            don't daemonize");
 	puts("  -h            display this help");
+	puts("  -p <pidfile>  the name of the pidfile");
 	puts("  -r <command>  the command to run upon disc detection");
 	puts("  -v            display the version of the code");
 }
@@ -56,14 +60,25 @@ int process_args(int argc, char **argv)
 {
 	int c;
 
-	while((c = getopt(argc, argv, "d:hr:v")) != -1)
+	while((c = getopt(argc, argv, "d:fhp:r:v")) != -1)
 	{
 		switch(c)
 		{
 			case 'd':
 				rescan_delay = atoi(optarg);
 				break;
-			case 'h':
+			case 'f':
+				daemonize = 0;
+				break;
+			case 'p':
+				pidfile = strdup(optarg);
+				if(pidfile == NULL)
+				{
+					perror(NULL);
+					return -1;
+				}
+				break;
+			case 'r':
 				child_cmd = strdup(optarg);
 				if(child_cmd == NULL)
 				{
@@ -108,6 +123,7 @@ int process_args(int argc, char **argv)
 
 void releasemem()
 {
+	if(pidfile != NULL) free(pidfile);
 	if(child_cmd != NULL)  free(child_cmd);
 	if(child_pids != NULL) free(child_pids);
 }
