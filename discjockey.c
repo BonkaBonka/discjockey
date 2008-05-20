@@ -12,6 +12,7 @@
 
 #define DEFAULT_CHILD_COMMAND "rip"
 #define DEFAULT_OUTPUT_FILE "/dev/null"
+#define DEFAULT_PID_FILE "/tmp/discjockey.pid"
 
 static int daemonize = 1;
 static int killified = 0;
@@ -48,7 +49,10 @@ void passthrough_handler(int signal)
 
 	for(i = 0; i < max_children; i++)
 	{
-		kill(child_pids[i], signal);
+		if(child_pids[i] != 0)
+		{
+			kill(child_pids[i], signal);
+		}
 	}
 
 	killified = 1;
@@ -79,7 +83,7 @@ int write_pidfile(char *filename, int pid)
 	{
 		if((out = fopen(filename, "w+")) == NULL)
 		{
-			perror("fopen");
+			perror(filename);
 			return -1;
 		}
 
@@ -166,6 +170,16 @@ int process_args(int argc, char **argv)
 	{
 		child_cmd = strdup(DEFAULT_CHILD_COMMAND);
 		if(child_cmd == NULL)
+		{
+			perror("strdup");
+			return -1;
+		}
+	}
+
+	if(daemonize && pidfile == NULL)
+	{
+		pidfile = strdup(DEFAULT_PID_FILE);
+		if(pidfile == NULL)
 		{
 			perror("strdup");
 			return -1;
