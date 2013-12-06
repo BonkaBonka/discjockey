@@ -22,13 +22,15 @@ static char *child_cmd = NULL;
 static char *pidfile = NULL;
 static char *outfile = NULL;
 
-int spawn_child(int index, char *device)
+int spawn_child(int index, char *device, char *type)
 {
-	char *args[4];
+	char *args[5];
+
 	args[0] = child_cmd;
 	args[1] = device;
 	args[2] = device + strlen(device) - 1;
-	args[3] = NULL;
+	args[3] = type;
+	args[4] = NULL;
 
 	if((child_pids[index] = fork()) == 0)
 	{
@@ -207,7 +209,7 @@ void releasemem()
 int main(int argc, char **argv)
 {
 	int c, i, fd, status;
-	char *device;
+	char *device, *type;
 
 	c = process_args(argc, argv);
 	if(c < 1)
@@ -296,22 +298,41 @@ int main(int argc, char **argv)
 				}
 
 				status = ioctl(fd, CDROM_DRIVE_STATUS, CDSL_CURRENT);
+				if(status != CDS_DISC_OK)
+				{
+					continue;
+				}
+
+				status = ioctl(fd, CDROM_DISC_STATUS, CDSL_CURRENT);
 
 				close(fd);
 
-				if(status == CDS_DISC_OK)
+				switch(status)
 				{
-					if(spawn_child(i, device) == -1)
-					{
-						/***
-						 * if there was an error,
-						 * only the child subprocess
-						 * returns here so don't zap
-						 * the pidfile
-						 ***/
-						releasemem();
-						return 1;
-					}
+					case CDS_AUDIO:
+						type = "audio";
+						break;
+					case CDS_DATA_1:
+					case CDS_DATA_2:
+						type = "data";
+						break;
+					case CDS_MIXED:
+						type = "mixed";
+						break;
+					default:
+						type = "unknown";
+				}
+
+				if(spawn_child(i, device, type) == -1)
+				{
+					/***
+					 * if there was an error,
+					 * only the child subprocess
+					 * returns here so don't zap
+					 * the pidfile
+					 ***/
+					releasemem();
+					return 1;
 				}
 			}
 		}
