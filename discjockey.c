@@ -300,6 +300,7 @@ int main(int argc, char **argv)
 				status = ioctl(fd, CDROM_DRIVE_STATUS, CDSL_CURRENT);
 				if(status != CDS_DISC_OK)
 				{
+					close(fd);
 					continue;
 				}
 
